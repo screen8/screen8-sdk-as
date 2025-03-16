@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import * as fs from 'fs/promises'
-import readline from 'readline'
-import * as z from 'zod'
+import * as fs from "fs/promises";
+import readline from "readline";
+import * as z from "zod";
+import loader from "@assemblyscript/loader";
 
 const KlineSchema = z.object({
   timestamp: z.number(),
@@ -10,97 +11,79 @@ const KlineSchema = z.object({
   close: z.number(),
   low: z.number(),
   high: z.number(),
-  volume: z.number()
-})
+  volume: z.number(),
+});
 
-export type Kline = z.infer<typeof KlineSchema>
+export type Kline = z.infer<typeof KlineSchema>;
 
 export interface ModuleExports {
-  memory: WebAssembly.Memory
-  __pin: (ptr: number) => number
-  __unpin: (ptr: number) => void
-  __collect: () => void
-  __new: (size: number, id: number) => number
-  __newArray: <T>(id: number, arr: T[]) => number
-  KlineArray_ID: number
-  setKline: (
-    arr: number,
-    index: number,
-    timestamp: bigint,
-    open: number,
-    close: number,
-    low: number,
-    high: number,
-    volume: number
-  ) => void
-  default: (arr: number, length: number) => number
+  memory: WebAssembly.Memory;
+  __pin: (ptr: number) => number;
+  __unpin: (ptr: number) => void;
+  __collect: () => void;
+  __new: (size: number, id: number) => number;
+  __newArray: <T>(id: number, arr: T[]) => number;
+  __getArrayView: (arr: number) => unknown;
+  entrypoint: (rawData: number) => number;
+  StaticArray_ID: number;
 }
 
 async function main() {
   if (process.argv.length < 4) {
-    throw new Error('Usage: node dist/index.js <screenerPath> <dataPath> [depth]')
+    throw new Error(
+      "Usage: node dist/index.js <screenerPath> <dataPath> [depth]"
+    );
   }
-  const [screenerPath, klinesPath] = process.argv.slice(2)
+  const [screenerPath, klinesPath] = process.argv.slice(2);
 
-  const maxDepth = parseInt(process.argv[4] || '1', 10)
+  const maxDepth = parseInt(process.argv[4] || "1", 10);
   if (isNaN(maxDepth) || maxDepth <= 0) {
-    throw new Error('Usage: node dist/index.js <screenerPath> <dataPath> [depth]')
+    throw new Error(
+      "Usage: node dist/index.js <screenerPath> <dataPath> [depth]"
+    );
   }
 
-  const wasmBuffer = await fs.readFile(screenerPath)
+  const wasmBuffer = await fs.readFile(screenerPath);
 
-  const fileStream = await fs.open(klinesPath)
+  const fileStream = await fs.open(klinesPath);
   const rl = readline.createInterface({
     input: fileStream.createReadStream(),
-    crlfDelay: Infinity
-  })
+    crlfDelay: Infinity,
+  });
+
+  const KlineDataSchema = z.object({
+    id: z.string(),
+    data: z.array(z.array(z.number()).min(7)),
+  });
 
   for await (const line of rl) {
     try {
-      const parsed = JSON.parse(line)
-      const KlineDataSchema = z.object({
-        symbol: z.string(),
-        interval: z.string(),
-        klines: z.array(z.tuple([
-          z.number(), // timestamp
-          z.number(), // open
-          z.number(), // close
-          z.number(), // high
-          z.number(), // low
-          z.number(), // volume
-        ]))
-      })
-      const data = KlineDataSchema.parse(parsed)
-      const { symbol, interval } = data
-      const klines: Kline[] = data.klines.map(arr => {
+      const parsed = JSON.parse(line);
+      const data = KlineDataSchema.parse(parsed);
+      const { id } = data;
+      const klines: Kline[] = data.data.map((arr) => {
         return {
           timestamp: arr[0],
           open: arr[1],
-          close: arr[2],
+          high: arr[2],
           low: arr[3],
-          high: arr[4],
-          volume: arr[5],
-        }
-      })
+          close: arr[4],
+          volume: arr[6],
+        };
+      });
 
-      const results: Record<number, number> = {}
+      console.log(id)
       for (let i = 0; i < Math.min(maxDepth, klines.length); i++) {
-        const subklines = klines.slice(i, i + 100)
-        const timestamp = subklines[0].timestamp
+        const subklines = klines
+        const timestamp = subklines[0].timestamp;
 
         // console.debug(symbol, interval, new Date(timestamp*1000), subklines.length, subklines[0].open)
-        const result = await analyzeKlines(wasmBuffer, subklines)
+        const result = await analyzeKlines(wasmBuffer, subklines);
 
-        if (result > 0) {
-          results[timestamp] = result
-        }
-      }
-      if (Object.keys(results).length > 0) {
-        console.log(symbol, interval)
-        console.log(Object.keys(results).map(t => new Date(Number(t) * 1000)))
+        console.log(" *", new Date(timestamp * 1000), result)
       }
     } catch (e) {
-      console.error('Error processing line:', e)
+      console.error("Error processing line:", e);
     }
   }
 }
@@ -108,59 +91,77 @@ async function main() {
 // Check each required export is present
 function checkRequiredExport(exports: WebAssembly.Exports, prop: string): void {
   if (!exports[prop]) {
-    throw new Error(`Required WASM export missing: ${prop}`)
+    throw new Error(`Required WASM export missing: ${prop}`);
   }
 }
 
-async function analyzeKlines(wasmBuffer: BufferSource, klines: Kline[]): Promise<number> {
-  const env = {
-    abort(_msg: string, _file: string, line: number, column: number) {
-      console.error("abort called at index.ts:" + line + ":" + column)
+async function analyzeKlines(
+  wasmBuffer: BufferSource,
+  klines: Kline[]
+): Promise<number> {
+  let __getString: any;
+
+  const imports = {
+    env: {
+      abort(msg: number, file: number, line: number, column: number) {
+        console.error("abort called at index.ts:" + line + ":" + column);
+      },
     },
+    log: {
+      debug: (msg: number) => {
+        console.debug(`DBG: ${(msg && __getString(msg)) || msg}`);
+      },
+      info: (msg: number) => {
+        console.log(`INFO: ${(msg && __getString(msg)) || msg}`);
+      },
+      warn: (msg: number) => {
+        console.warn(`WARN: ${(msg && __getString(msg)) || msg}`);
+      },
+      error: (msg: number) => {
+        console.error(`ERR: ${(msg && __getString(msg)) || msg}`);
+      },
+    },
+  };
+
+  const wasmModule = await loader.instantiate(wasmBuffer, imports);
+  const exports = wasmModule.instance.exports;
+  __getString = wasmModule.exports.__getString;
+
+  checkRequiredExport(exports, "entrypoint");
+  checkRequiredExport(exports, "StaticArray_ID");
+
+  const { __pin, __unpin, __collect, __newArray } = wasmModule.exports as unknown as ModuleExports;
+  const { entrypoint, StaticArray_ID } = exports as unknown as ModuleExports;
+
+  // Create flat array of raw data
+  const rawData: number[] = [];
+  for (const k of klines) {
+    rawData.push(
+      Number(k.timestamp),
+      k.open,
+      k.close,
+      k.low,
+      k.high,
+      k.volume
+    );
   }
 
-  const wasmModule = await WebAssembly.instantiate(wasmBuffer, { env })
-  const exports = wasmModule.instance.exports
+  // Create StaticArray in WASM memory
+  const arrayPtr = __newArray(StaticArray_ID, rawData);
+  const pinnedPtr = __pin(arrayPtr);
 
-  // Verify all required exports
-  checkRequiredExport(exports, '__new')
-  checkRequiredExport(exports, '__pin')
-  checkRequiredExport(exports, '__unpin')
-  checkRequiredExport(exports, '__collect')
-  checkRequiredExport(exports, 'KlineArray_ID')
-  checkRequiredExport(exports, 'setKline')
-  checkRequiredExport(exports, 'default')
+  // Pass raw data array and length (number of klines)
+  // console.log(`klines: ${klines.length} | rawData: ${rawData.length}`);
+  const result = entrypoint(pinnedPtr);
 
-  const { __new, __pin, __unpin, __collect, KlineArray_ID, setKline, default: main } = exports as unknown as ModuleExports
+  // Cleanup
+  __unpin(pinnedPtr);
+  __collect();
 
-  const arrayPtr = __pin(__new(klines.length * 4, KlineArray_ID))
-
-  let result = 0
-
-  try {
-    klines.forEach((kline, index) => {
-      setKline(
-        arrayPtr,
-        index,
-        BigInt(kline.timestamp),
-        kline.open,
-        kline.close,
-        kline.low,
-        kline.high,
-        kline.volume,
-      )
-    })
-    result = main(arrayPtr, klines.length)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    __unpin(arrayPtr)
-    __collect()
-  }
-  return result
+  return result;
 }
 
-main().catch(err => {
-  console.error(err.message)
-  process.exit(1)
-})
+main().catch((err) => {
+  console.error(err.message);
+  process.exit(1);
+});

@@ -1,75 +1,136 @@
-import { BollingerBands } from "./types"
+import { BollingerBands, Kline } from "./types";
 
-// Highest value
-export const highest = (data: f64[], length: i32): f64 => {
-  return data.length === 0 ? 0 : data
-    .slice(0, length)
-    .reduce<f64>((min, val) => Math.max(val, min), data[0])
+// Open
+export function open(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines.slice(0, limit).map<f64>((kline) => kline.open);
 }
 
-// Lowest value
-export const lowest = (data: f64[], length: i32): f64 => {
-  return data.length === 0 ? 0 : data
-    .slice(0, length)
-    .reduce<f64>((min, val) => Math.min(val, min), data[0])
+// High
+export function high(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines.slice(0, limit).map<f64>((kline) => kline.high);
 }
 
-// Simple Moving Average
-export const sma = (data: f64[], length: i32): f64 => {
+// Low
+export function low(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines.slice(0, limit).map<f64>((kline) => kline.low);
+}
+
+// Close
+export function close(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines.slice(0, limit).map<f64>((kline) => kline.close);
+}
+
+// Volume
+export function volume(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines.slice(0, limit).map<f64>((kline) => kline.volume);
+}
+
+// Highest
+export function highest(data: f64[], length: i32): f64 {
+  if (data.length === 0 || length <= 0) {
+    return 0;
+  }
   return data
     .slice(0, length)
-    .reduce<f64>((acc, val) => acc + val, 0) / length
+    .reduce<f64>((min, val) => Math.max(val, min), data[0]);
+}
+
+// Lowest
+export function lowest(data: f64[], length: i32): f64 {
+  if (data.length === 0 || length <= 0) {
+    return 0;
+  }
+  return data
+    .slice(0, length)
+    .reduce<f64>((min, val) => Math.min(val, min), data[0]);
+}
+
+// HLC3
+export function hlc3(klines: Kline[], limit: i32 = klines.length): f64[] {
+  return klines
+    .slice(0, limit)
+    .map<f64>((kline) => (kline.high + kline.low + kline.close) / 3);
+}
+
+// SMA (Simple Moving Average)
+export function sma(
+  source: f64[],
+  length: i32,
+  limit: i32 = source.length
+): f64[] {
+  const result: f64[] = [];
+  for (let i = 0; i < Math.min(limit, source.length); i++) {
+    result.push(smaValue(source.slice(i), length));
+  }
+  return result;
+}
+
+export function smaValue(source: f64[], length: i32): f64 {
+  const slicedData = source.slice(0, length);
+  const sum = slicedData.reduce<f64>((acc, val) => acc + val, 0);
+  return sum / length;
 }
 
 // Standard Deviation
-export const stdev = (data: f64[], length: i32): f64 => {
-  // avg = ta.sma(src, length)
-  // sumOfSquareDeviations = 0.0
-  // for i = 0 to length - 1
-  //     sum = SUM(src[i], -avg)
-  //     sumOfSquareDeviations := sumOfSquareDeviations + sum * sum
-  // stdev = math.sqrt(sumOfSquareDeviations / length)
-  const avg = sma(data, length);
+export function stdev(
+  source: f64[],
+  length: i32,
+  limit: i32 = source.length
+): f64[] {
+  const result: f64[] = [];
+  for (let i = 0; i < Math.min(limit, source.length); i++) {
+    result.push(stdevValue(source.slice(i), length));
+  }
+  return result;
+}
+
+export function stdevValue(source: f64[], length: i32): f64 {
+  const slicedData = source.slice(0, length);
+  const avg = sma(slicedData, length, 1);
   let sumOfSquareDeviations: f64 = 0;
-  for (let i = 0; i < length; i++) {
-    const sum = data[i] - avg;
-    sumOfSquareDeviations += sum * sum;
+  for (let j = 0; j < slicedData.length; j++) {
+    const diff = slicedData[j] - avg[0];
+    sumOfSquareDeviations += diff * diff;
   }
   return Math.sqrt(sumOfSquareDeviations / length);
 }
 
 // Bollinger Bands
-export const bb = (data: f64[], length: i32, mult: f64): BollingerBands => {
-  // float basis = ta.sma(src, length)
-  // float dev = mult * ta.stdev(src, length)
-  // [basis, basis + dev, basis - dev]
-
-  // const slicedData = data.slice(0, length);
-  // const squaredDiffs = slicedData.map(val => Math.pow(val - smaValue, 2));
-  // const stdDev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / length);
-  const basis = sma(data, length);
-  const dev = mult * stdev(data, length);
-  // return { sma: basis, bbUp: basis + dev, bbDown: basis - dev };
-  return new BollingerBands(basis, basis + dev, basis - dev);
-};
-
-
-// Bollinger Bands Width
-export const bbw = (data: f64[], length: i32, mult: number): f64[] => {
-  const result: f64[] = [];
-  for (let i = 0; i < data.length; i++) {
-    const slicedData = data.slice(i, i + length);
-    const smaValue = sma(slicedData, length);
-
-    let sumOfSquaredDiffs: f64 = 0;
-    for (let j = 0; j < slicedData.length; j++) {
-      const diff = slicedData[j] - smaValue;
-      sumOfSquaredDiffs += diff * diff;
-    }
-    const stdDev = Math.sqrt(sumOfSquaredDiffs / length);
-    const dev = mult * stdDev;
-
-    result.push(((smaValue + dev) - (smaValue - dev)) / smaValue);
+export function bb(
+  source: f64[],
+  length: i32,
+  mult: f64,
+  limit: i32 = source.length
+): BollingerBands[] {
+  const result: BollingerBands[] = [];
+  for (let i = 0; i < Math.min(limit, source.length); i++) {
+    result.push(bbValue(source.slice(i), length, mult));
   }
   return result;
+}
+
+export function bbValue(source: f64[], length: i32, mult: f64): BollingerBands {
+  const basis = smaValue(source, length);
+  const dev = mult * stdevValue(source, length);
+  return new BollingerBands(basis, basis + dev, basis - dev);
+}
+
+// Bollinger Bands Width
+export function bbw(
+  source: f64[],
+  length: i32,
+  mult: f64,
+  limit: i32 = source.length
+): f64[] {
+  const result: f64[] = [];
+  for (let i = 0; i < Math.min(limit, source.length); i++) {
+    result.push(bbwValue(source.slice(i), length, mult));
+  }
+  return result;
+}
+
+export function bbwValue(source: f64[], length: i32, mult: f64): f64 {
+  const basis = smaValue(source, length);
+  const dev = mult * stdevValue(source, length);
+  return 100 * (basis + dev - (basis - dev)) / basis;
 }
