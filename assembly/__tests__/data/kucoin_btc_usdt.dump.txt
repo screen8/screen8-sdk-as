@@ -1,18 +1,10 @@
-  const source = ta.hlc3(klines);
-  const sma = ta.sma(source, 60);
-  const stdev = ta.stdev(source, 60);
-
-  for (let i = 0; i < klines.length; i++) {
-    // const date = new Date(klines[i].timestamp*1000);
-    // const formattedDate = `${date.getUTCFullYear()}-${date.getUTCMonth()+1}-${date.getUTCDate()}`;
-    // log.debug(`SMA60 ${formattedDate} | ${sma[i]}`);
-    // log.debug(`STDEV50 ${formattedDate} | ${stdev[i]}`);
-    // log.debug(`HLC3 ${formattedDate} | ${source[i]}`);
-    log.info(`${klines[i].timestamp},${source[i]},${sma[i]},${stdev[i]}`);
-  }
-
-> @screen8/sdk-as@0.0.1 start /Users/ketmo/src/github.com/screen8/screen8-sdk-as
-> tsx src/index.ts "./dist/screener.wasm" "assembly/__tests__/data/kucoin_btc_usdt.jsonl"
+//  const source = ta.hlc3(klines);
+//  const sma = ta.sma(source, 60);
+//  const stdev = ta.stdev(source, 60);
+//
+//  for (let i = 0; i < klines.length; i++) {
+//    log.info(`${klines[i].timestamp},${source[i]},${sma[i]},${stdev[i]}`);
+//  }
 
 kucoin_btc_usdt
 INFO: 1742515200,84091.66666666667,93227.1738888889,7609.661172223138
@@ -315,4 +307,3 @@ INFO: 1716940800,67909.83333333333,4575.602777777778,16540.450545701027
 INFO: 1716854400,68425.53333333334,3443.7722222222224,14631.283703954568
 INFO: 1716768000,69456.03333333334,2303.3466666666664,12195.590472357835
 INFO: 1716681600,68744.76666666667,1145.746111111111,8726.996027719984
- * 2025-03-21T00:00:00.000Z 84208

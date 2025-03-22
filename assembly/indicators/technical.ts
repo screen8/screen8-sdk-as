@@ -1,63 +1,7 @@
-import { BollingerBands, Kline } from "./types";
-
-// Open
-export function open(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines.slice(0, limit).map<f64>((kline) => kline.open);
-}
-
-// High
-export function high(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines.slice(0, limit).map<f64>((kline) => kline.high);
-}
-
-// Low
-export function low(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines.slice(0, limit).map<f64>((kline) => kline.low);
-}
-
-// Close
-export function close(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines.slice(0, limit).map<f64>((kline) => kline.close);
-}
-
-// Volume
-export function volume(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines.slice(0, limit).map<f64>((kline) => kline.volume);
-}
-
-// Highest
-export function highest(data: f64[], length: i32): f64 {
-  if (data.length === 0 || length <= 0) {
-    return 0;
-  }
-  return data
-    .slice(0, length)
-    .reduce<f64>((min, val) => Math.max(val, min), data[0]);
-}
-
-// Lowest
-export function lowest(data: f64[], length: i32): f64 {
-  if (data.length === 0 || length <= 0) {
-    return 0;
-  }
-  return data
-    .slice(0, length)
-    .reduce<f64>((min, val) => Math.min(val, min), data[0]);
-}
-
-// HLC3
-export function hlc3(klines: Kline[], limit: i32 = klines.length): f64[] {
-  return klines
-    .slice(0, limit)
-    .map<f64>((kline) => (kline.high + kline.low + kline.close) / 3);
-}
+import { BollingerBands } from "../types";
 
 // SMA (Simple Moving Average)
-export function sma(
-  source: f64[],
-  length: i32,
-  limit: i32 = source.length
-): f64[] {
+export function sma(source: f64[], length: i32, limit: i32 = source.length): f64[] {
   const result: f64[] = [];
   for (let i = 0; i < Math.min(limit, source.length); i++) {
     result.push(smaValue(source.slice(i), length));
@@ -72,11 +16,7 @@ export function smaValue(source: f64[], length: i32): f64 {
 }
 
 // Standard Deviation
-export function stdev(
-  source: f64[],
-  length: i32,
-  limit: i32 = source.length
-): f64[] {
+export function stdev(source: f64[], length: i32, limit: i32 = source.length): f64[] {
   const result: f64[] = [];
   for (let i = 0; i < Math.min(limit, source.length); i++) {
     result.push(stdevValue(source.slice(i), length));
@@ -116,12 +56,7 @@ export function bbValue(source: f64[], length: i32, mult: f64): BollingerBands {
 }
 
 // Bollinger Bands Width
-export function bbw(
-  source: f64[],
-  length: i32,
-  mult: f64,
-  limit: i32 = source.length
-): f64[] {
+export function bbw(source: f64[], length: i32, mult: f64, limit: i32 = source.length): f64[] {
   const result: f64[] = [];
   for (let i = 0; i < Math.min(limit, source.length); i++) {
     result.push(bbwValue(source.slice(i), length, mult));
@@ -132,5 +67,61 @@ export function bbw(
 export function bbwValue(source: f64[], length: i32, mult: f64): f64 {
   const basis = smaValue(source, length);
   const dev = mult * stdevValue(source, length);
-  return 100 * (basis + dev - (basis - dev)) / basis;
+  return (100 * (basis + dev - (basis - dev))) / basis;
+}
+
+// Relative Strength Index (RSI)
+export function rsi(source: f64[], length: i32, limit: i32 = source.length): f64[] {
+  const result: f64[] = [];
+  for (let i = 0; i < Math.min(limit, source.length); i++) {
+    result.push(rsiValue(source.slice(i), length));
+  }
+  return result;
+}
+
+export function rsiValue(source: f64[], length: i32): f64 {
+  if (source.length <= length) {
+    return 50.0; // Default value when not enough data
+  }
+
+  let gainSum: f64 = 0.0;
+  let lossSum: f64 = 0.0;
+
+  // First calculate initial averages
+  // Note: source[0] is today, source[1] is yesterday, etc.
+  for (let i = 0; i < length; i++) {
+    if (i + 1 >= source.length) break;
+    const change = source[i] - source[i + 1];
+    if (change > 0) {
+      gainSum += change;
+    } else {
+      lossSum += Math.abs(change);
+    }
+  }
+
+  let avgGain = gainSum / length;
+  let avgLoss = lossSum / length;
+
+  // Calculate smoothed averages for remaining periods
+  for (let i = length; i < source.length - 1; i++) {
+    const change = source[i] - source[i + 1];
+    let currentGain = 0.0;
+    let currentLoss = 0.0;
+
+    if (change > 0) {
+      currentGain = change;
+    } else {
+      currentLoss = Math.abs(change);
+    }
+
+    avgGain = (avgGain * (length - 1) + currentGain) / length;
+    avgLoss = (avgLoss * (length - 1) + currentLoss) / length;
+  }
+
+  if (avgLoss === 0) {
+    return 100.0;
+  }
+
+  const rs = avgGain / avgLoss;
+  return 100.0 - 100.0 / (1.0 + rs);
 }

@@ -11,8 +11,8 @@ export class Kline {
 
 export class BollingerBands {
   constructor(
-    public sma: f64 = 0,
-    public bbUp: f64 = 0,
-    public bbDown: f64 = 0,
+    public basis: f64 = 0,
+    public up: f64 = 0,
+    public down: f64 = 0,
   ) { }
 }

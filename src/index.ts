@@ -30,17 +30,13 @@ export interface ModuleExports {
 
 async function main() {
   if (process.argv.length < 4) {
-    throw new Error(
-      "Usage: node dist/index.js <screenerPath> <dataPath> [depth]"
-    );
+    throw new Error("Usage: node dist/index.js <screenerPath> <dataPath> [depth]");
   }
   const [screenerPath, klinesPath] = process.argv.slice(2);
 
   const maxDepth = parseInt(process.argv[4] || "1", 10);
   if (isNaN(maxDepth) || maxDepth <= 0) {
-    throw new Error(
-      "Usage: node dist/index.js <screenerPath> <dataPath> [depth]"
-    );
+    throw new Error("Usage: node dist/index.js <screenerPath> <dataPath> [depth]");
   }
 
   const wasmBuffer = await fs.readFile(screenerPath);
@@ -72,15 +68,13 @@ async function main() {
         };
       });
 
-      console.log(id)
+      console.log(id);
       for (let i = 0; i < Math.min(maxDepth, klines.length); i++) {
-        const subklines = klines
-        const timestamp = subklines[0].timestamp;
+        const timestamp = klines[0].timestamp;
 
-        // console.debug(symbol, interval, new Date(timestamp*1000), subklines.length, subklines[0].open)
-        const result = await analyzeKlines(wasmBuffer, subklines);
+        const result = await analyzeKlines(wasmBuffer, klines);
 
-        console.log(" *", new Date(timestamp * 1000), result)
+        console.log(" *", new Date(timestamp * 1000), result);
       }
     } catch (e) {
       console.error("Error processing line:", e);
@@ -95,10 +89,7 @@ function checkRequiredExport(exports: WebAssembly.Exports, prop: string): void {
   }
 }
 
-async function analyzeKlines(
-  wasmBuffer: BufferSource,
-  klines: Kline[]
-): Promise<number> {
+async function analyzeKlines(wasmBuffer: BufferSource, klines: Kline[]): Promise<number> {
   let __getString: any;
 
   const imports = {
@@ -136,14 +127,7 @@ async function analyzeKlines(
   // Create flat array of raw data
   const rawData: number[] = [];
   for (const k of klines) {
-    rawData.push(
-      Number(k.timestamp),
-      k.open,
-      k.close,
-      k.low,
-      k.high,
-      k.volume
-    );
+    rawData.push(Number(k.timestamp), k.open, k.high, k.low, k.close, k.volume);
   }
 
   // Create StaticArray in WASM memory
@@ -151,7 +135,6 @@ async function analyzeKlines(
   const pinnedPtr = __pin(arrayPtr);
 
   // Pass raw data array and length (number of klines)
-  // console.log(`klines: ${klines.length} | rawData: ${rawData.length}`);
   const result = entrypoint(pinnedPtr);
 
   // Cleanup
