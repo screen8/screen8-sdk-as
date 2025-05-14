@@ -8,9 +8,9 @@ import loader from "@assemblyscript/loader";
 const KlineSchema = z.object({
   timestamp: z.number(),
   open: z.number(),
-  close: z.number(),
-  low: z.number(),
   high: z.number(),
+  low: z.number(),
+  close: z.number(),
   volume: z.number(),
 });
 
@@ -70,9 +70,11 @@ async function main() {
 
       console.log(id);
       for (let i = 0; i < Math.min(maxDepth, klines.length); i++) {
-        const timestamp = klines[0].timestamp;
+        const subklines = klines.slice(i)
+        const timestamp = subklines[0].timestamp;
+        // console.log(subklines[0].timestamp, subklines[0].open, subklines[0].high, subklines[0].low, subklines[0].close, subklines[0].volume);
 
-        const result = await analyzeKlines(wasmBuffer, klines);
+        const result = await analyzeKlines(wasmBuffer, subklines);
 
         console.log(" *", new Date(timestamp * 1000), result);
       }

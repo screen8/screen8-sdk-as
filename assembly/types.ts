@@ -2,9 +2,9 @@ export class Kline {
   constructor(
     public timestamp: i64 = 0,  // 8 bytes
     public open: f64 = 0,       // 8 bytes
-    public close: f64 = 0,      // 8 bytes
-    public low: f64 = 0,        // 8 bytes
     public high: f64 = 0,       // 8 bytes
+    public low: f64 = 0,        // 8 bytes
+    public close: f64 = 0,      // 8 bytes
     public volume: f64 = 0,     // 8 bytes
   ) {}
 }

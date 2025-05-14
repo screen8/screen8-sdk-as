@@ -1,13 +1,13 @@
-import { Kline } from "./types"
+import { Kline } from "./types";
 
 // The ID of the StaticArray<Kline> type.
-export const KlineArray_ID = idof<StaticArray<Kline>>()
+export const KlineArray_ID = idof<StaticArray<Kline>>();
 
 // The ID of the StaticArray<f64> type.
 export const StaticArray_ID = idof<StaticArray<f64>>();
 
 // Creates an array of Kline structs from a StaticArray<f64> of data.
-// The data array should be in the following order: timestamp, open, close, low, high, volume.
+// The data array should be in the following order: timestamp, open, high, low, close, volume.
 // The length of the data array should be 6 times the number of Kline structs.
 // Returns an array of Kline structs.
 export function createKlines(data: StaticArray<f64>): Kline[] {
