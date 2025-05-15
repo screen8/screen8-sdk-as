@@ -1,5 +1,7 @@
 import { Kline, StaticArray_ID, createKlines, log, ta } from "../assembly";
 
+export { StaticArray_ID };
+
 export function entrypoint(data: StaticArray<f64>): i32 {
   const klines = createKlines(data);
 
@@ -25,5 +27,3 @@ function score(kline: Kline): i32 {
 function percentChange(kline: Kline): f64 {
   return (100 * (kline.close - kline.open)) / kline.open;
 }
-
-export { StaticArray_ID };

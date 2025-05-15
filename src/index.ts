@@ -70,7 +70,7 @@ async function main() {
 
       console.log(id);
       for (let i = 0; i < Math.min(maxDepth, klines.length); i++) {
-        const subklines = klines.slice(i)
+        const subklines = klines.slice(i);
         const timestamp = subklines[0].timestamp;
         // console.log(subklines[0].timestamp, subklines[0].open, subklines[0].high, subklines[0].low, subklines[0].close, subklines[0].volume);
 
