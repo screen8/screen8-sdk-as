@@ -16,7 +16,7 @@ const KlineSchema = z.object({
 
 export type Kline = z.infer<typeof KlineSchema>;
 
-export interface ModuleExports {
+export type ModuleExports = {
   memory: WebAssembly.Memory;
   __pin: (ptr: number) => number;
   __unpin: (ptr: number) => void;
